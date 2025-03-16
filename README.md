@@ -1,84 +1,93 @@
-# CosmosGPT2-GRPO: Enhancing Mathematical Reasoning in Turkish GPT-2
+# GSM8K-TR Model Training
+
+This project fine-tunes a Turkish GPT-2 Medium model on the GSM8K-TR dataset using Supervised Fine-Tuning (SFT) and further refines it with a reward-based fine-tuning approach using Group Relative Policy Optimization (GRPO). 
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Training](#training)
+  - [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning-sft)
+  - [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo)
+- [Reward Functions](#reward-functions)
+- [Model Saving](#model-saving)
+- [License](#license)
 
 ## Overview
-This project fine-tunes the [ytu-ce-cosmos/turkish-gpt2-medium-350m-instruct-v0.1](https://huggingface.co/ytu-ce-cosmos/turkish-gpt2-medium-350m-instruct-v0.1) model using [GSM8K-TR](https://huggingface.co/datasets/ytu-ce-cosmos/gsm8k_tr) with the GRPO (Group Relative Policy Optimization) framework. The goal is to improve the model's mathematical reasoning capabilities by incorporating a hybrid reward function based on numerical correctness and reasoning similarity.
+This project aims to enhance the mathematical reasoning ability of a Turkish GPT-2 Medium model using a two-stage training approach:
+1. **Supervised Fine-Tuning (SFT)**: The model is fine-tuned on the GSM8K-TR dataset to learn question-answering patterns.
+2. **Group Relative Policy Optimization (GRPO)**: A reward model is used to further improve reasoning and structured response generation.
 
 ## Features
-- **Fine-tuning with GRPO**: Uses reward-based optimization for better reasoning.
-- **Hybrid Reward Function**: Evaluates responses based on numerical accuracy and reasoning similarity.
-- **LoRA (Low-Rank Adaptation)**: Efficient parameter-efficient fine-tuning method.
-- **Sentence Embedding for Similarity**: Uses `sentence-transformers/all-MiniLM-L6-v2` for reasoning-based reward calculation.
-- **Multi-device Training Support**: Compatible with CUDA, MPS, and CPU.
-- **Integrated with W&B**: Tracks training progress using Weights & Biases.
+- Fine-tunes a Turkish GPT-2 Medium model.
+- Implements structured response formats using XML-style tags.
+- Uses reward-based training with multiple reward functions.
+- Supports LoRA-based parameter-efficient fine-tuning.
 
 ## Installation
-### Requirements
-Ensure you have Python 3.8+ and install dependencies:
-```sh
-pip install torch transformers datasets sentence-transformers peft trl wandb scipy
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-repo/gsm8k-tr-training.git
+   cd gsm8k-tr-training
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Ensure you have the required dataset available.
 
 ## Environment Setup
-To set up a dedicated environment for this project, follow these steps:
 
-### Using `venv` (Recommended for Local Development)
-```sh
-python -m venv cosmosgpt2-env
-source cosmosgpt2-env/bin/activate
-pip install --upgrade pip
+Before running the training scripts, set up your environment properly:
+
+Create a virtual environment (optional but recommended):
+```bash
+python -m venv venv
+source venv/bin/activate  # On macOS/Linux
+venv\Scripts\activate  # On Windows
+```
+Install required packages:
+```bash
 pip install -r requirements.txt
 ```
 
-Ensure that your environment is activated before running any scripts.
+## Usage
+To train the model, configure `config.py` and run the corresponding training scripts.
 
 ## Configuration
-Modify `config.py` to adjust:
-- **Model and dataset**:
-  - `BASE_MODEL_NAME`: Pretrained model name.
-  - `DATASET_NAME`: Fine-tuning dataset.
-- **Training Parameters**:
-  - `TRAINING_CONFIG`: Adjust training steps, batch size, learning rate, etc.
-- **LoRA Settings**:
-  - `LORA_CONFIG`: Modify rank, dropout, and bias settings.
+Modify `config.py` to set paths, model names, and training hyperparameters. Key configuration values:
+- `DATASET_NAME`: The dataset identifier.
+- `BASE_MODEL_NAME`: Pretrained GPT-2 Medium model.
+- `LORA_CONFIG`: LoRA parameters.
+- `GRPO_TRAINING_CONFIG`: GRPO-specific training settings.
+- `SFT_TRAINING_CONFIG`: SFT-specific training settings.
+- `GRPO_CHECKPOINT_DIR`: Path for saving GRPO checkpoints.
+- `SFT_CHECKPOINT_DIR`: Path for saving SFT checkpoints.
 
-## Usage
-### 1. Set Up Weights & Biases
-Log into W&B before training:
-```sh
-wandb login
+## Training
+### Supervised Fine-Tuning (SFT)
+```bash
+python sft_training.py
 ```
+This will fine-tune the base model with question-answer pairs.
 
-### 2. Train the Model
-Run the main script to start training:
-```sh
-python main.py
+### Group Relative Policy Optimization (GRPO)
+```bash
+python grpo_training.py
 ```
-If training was interrupted, it will resume from the last checkpoint.
+This will refine the SFT model using reward-based learning.
 
-## Reward Function Details
-The reward function evaluates completions based on:
-1. **Numerical Accuracy**: Extracts numbers and compares them with the ground truth.
-2. **Reasoning Similarity**: Computes the cosine similarity of sentence embeddings.
-3. **Final Reward Calculation**:
-   ```
-   final_reward = (0.6 * answer_reward) + (0.4 * reasoning_reward)
-   ```
-   where `answer_reward` is based on numerical correctness, and `reasoning_reward` is a reasoning format similarity score.
+## Reward Functions
+The GRPO training script includes four reward functions:
+1. **Correctness Reward (`correctness_reward_func`)**: Rewards correct answers.
+2. **Strict Format Reward (`strict_format_reward_func`)**: Ensures responses follow the XML template.
+3. **Soft Format Reward (`soft_format_reward_func`)**: Looser format validation.
+4. **XML Count Reward (`xmlcount_reward_func`)**: Encourages proper XML structure.
 
-## Model Training Workflow
-1. Load dataset and preprocess.
-2. Filter questions containing numerical values.
-3. Fine-tune the GPT-2 model using LoRA and GRPO.
-4. Use the hybrid reward function for optimization.
-5. Save model checkpoints at specified steps.
-
-## Performance Tracking
-- **Logging with W&B**: Monitors training metrics and logs progress.
-- **Checkpointing**: Saves model every 25 steps to `OUTPUT_DIR`.
-
-## Device Support
-The model runs on the best available hardware:
-- **CUDA (NVIDIA GPU)**
-- **MPS (Mac M-series GPU)**
-- **CPU (Fallback)**
+## Model Saving
+Trained models are saved to:
+- `SFT_OUTPUT_DIR` for supervised fine-tuning
+- `GRPO_OUTPUT_DIR` for reinforcement fine-tuning
 
